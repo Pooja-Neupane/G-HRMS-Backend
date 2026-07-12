@@ -1,0 +1,76 @@
+# Environment variables and local secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Python bytecode and caches
+__pycache__/
+*.py[cod]
+*$py.class
+.python-version
+
+# Virtual environments
+venv/
+.venv/
+env/
+ENV/
+
+# Django runtime files
+*.sqlite3
+*.sqlite3-journal
+db.sqlite3
+media/
+staticfiles/
+collected_static/
+*.log
+logs/
+local_settings.py
+
+# Test, coverage, and type-checking output
+.pytest_cache/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+.tox/
+.nox/
+.mypy_cache/
+.pyre/
+.pytype/
+.ruff_cache/
+.hypothesis/
+
+# Packaging and build output
+build/
+dist/
+*.egg-info/
+.eggs/
+pip-wheel-metadata/
+
+# Celery runtime files
+celerybeat-schedule
+celerybeat.pid
+
+# IDE and editor settings
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Local AI agent context and memory
+/.agent/
+/AGENTS.md
+/CLAUDE.md
+
+# Local project learning notes
+/doc/
+
+# Operating system metadata
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+/.secrets/
