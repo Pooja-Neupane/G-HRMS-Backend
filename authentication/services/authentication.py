@@ -107,19 +107,12 @@ class AuthenticationService:
                 pending_error = AccountInactiveError()
 
             else:
-                user.failed_login_count = 0
-                user.locked_until = None
-                user.last_login = now
-                user.last_login_at = now
-
-                self.user_repository.save(
+                self.user_repository.update_fields(
                     user,
-                    update_fields=[
-                        "failed_login_count",
-                        "locked_until",
-                        "last_login",
-                        "last_login_at",
-                    ],
+                    failed_login_count=0,
+                    locked_until=None,
+                    last_login=now,
+                    last_login_at=now,
                 )
 
                 self.event_repository.create(
@@ -165,10 +158,6 @@ class AuthenticationService:
             return InvalidCredentialsError()
 
         user.failed_login_count += 1
-        update_fields = [
-            "failed_login_count",
-            "locked_until",
-        ]
 
         if (
             user.failed_login_count
@@ -176,9 +165,10 @@ class AuthenticationService:
         ):
             user.locked_until = now + settings.AUTH_LOCKOUT_DURATION
 
-            self.user_repository.save(
+            self.user_repository.update_fields(
                 user,
-                update_fields=update_fields,
+                failed_login_count=user.failed_login_count,
+                locked_until=user.locked_until,
             )
 
             self.event_repository.create(
@@ -193,9 +183,10 @@ class AuthenticationService:
                 details={"locked_until": user.locked_until.isoformat()}
             )
 
-        self.user_repository.save(
+        self.user_repository.update_fields(
             user,
-            update_fields=update_fields,
+            failed_login_count=user.failed_login_count,
+            locked_until=user.locked_until,
         )
         return InvalidCredentialsError()
 

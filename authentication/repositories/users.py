@@ -144,3 +144,18 @@ class UserRepository:
         fields = list(dict.fromkeys(update_fields)) if update_fields else None
         user.save(update_fields = fields)
         return user
+
+    def update_fields(self, user, **values):
+        """Update selected columns without triggering model save signals.
+
+        Login and lockout bookkeeping only needs to persist operational fields;
+        using ``QuerySet.update()`` avoids model-level history hooks on every
+        authentication attempt while keeping the in-memory instance in sync.
+        """
+        if not values:
+            return user
+
+        self.model._default_manager.filter(pk=user.pk).update(**values)
+        for field, value in values.items():
+            setattr(user, field, value)
+        return user

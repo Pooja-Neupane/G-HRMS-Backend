@@ -65,7 +65,8 @@ INSTALLED_APPS = [
     "organizations",
     "account",
     "authentication.apps.AuthenticationConfig",
-    "documents.apps.DocumentsConfig"
+    "documents.apps.DocumentsConfig",
+    "payroll",
 ]
 
 AUTH_USER_MODEL = "account.User"
@@ -130,6 +131,7 @@ SPECTACULAR_SETTINGS = {
         {"name": "Subcategories", "description": "Subcategories within a category."},
         {"name": "Levels", "description": "Gazetted and non-gazetted employee levels."},
         {"name": "Positions", "description": "Posts linked to service taxonomy and levels."},
+        {"name": "Payroll", "description": "Payroll runs, salary entries, and payment settlement records."},
     ],
     "SWAGGER_UI_SETTINGS": {
         "persistAuthorization": True,
@@ -343,14 +345,16 @@ STATIC_ROOT = BASE_DIR / "staticfiles"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 
-CORS_ALLOWED_ORIGINS = [
-    "http://localhost:3000",  # frontend URL
-]
+CORS_ALLOWED_ORIGINS = config(
+    "CORS_ALLOWED_ORIGINS",
+    default="http://localhost:8080,http://127.0.0.1:8080",
+    cast=Csv(),
+)
 CORS_ALLOW_CREDENTIALS = True
 
 CSRF_TRUSTED_ORIGINS = config(
     "CSRF_TRUSTED_ORIGINS",
-    default="http://localhost:3000",
+    default="http://localhost:8080,http://127.0.0.1:8080",
     cast=Csv(),
 )
 
