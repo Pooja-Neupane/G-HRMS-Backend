@@ -261,6 +261,104 @@ class EmployeeStatusHistory(models.Model):
     remarks = models.CharField(max_length=200, blank=True, null=True)
 
 
+class AttendanceRecord(models.Model):
+    class Status(models.TextChoices):
+        PRESENT = "present", "Present"
+        ABSENT = "absent", "Absent"
+        LATE = "late", "Late"
+        HALF_DAY = "half_day", "Half Day"
+        HOLIDAY = "holiday", "Holiday"
+
+    employee = models.ForeignKey(
+        Employee,
+        on_delete=models.CASCADE,
+        related_name="attendance_records",
+    )
+    work_date = models.DateField()
+    check_in = models.TimeField(null=True, blank=True)
+    check_out = models.TimeField(null=True, blank=True)
+    status = models.CharField(
+        max_length=12,
+        choices=Status.choices,
+        default=Status.PRESENT,
+    )
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-work_date", "-created_at"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["employee", "work_date"],
+                name="unique_attendance_per_employee_day",
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.employee} - {self.work_date}"
+
+
+class LeaveRequest(models.Model):
+    class LeaveType(models.TextChoices):
+        SICK = "sick", "Sick"
+        ANNUAL = "annual", "Annual"
+        PERSONAL = "personal", "Personal"
+        MATERNITY = "maternity", "Maternity"
+        OTHER = "other", "Other"
+
+    class Status(models.TextChoices):
+        PENDING = "pending", "Pending"
+        APPROVED = "approved", "Approved"
+        REJECTED = "rejected", "Rejected"
+        CANCELLED = "cancelled", "Cancelled"
+
+    employee = models.ForeignKey(
+        Employee,
+        on_delete=models.CASCADE,
+        related_name="leave_requests",
+    )
+    leave_type = models.CharField(max_length=20, choices=LeaveType.choices)
+    start_date = models.DateField()
+    end_date = models.DateField()
+    reason = models.TextField()
+    status = models.CharField(
+        max_length=12,
+        choices=Status.choices,
+        default=Status.PENDING,
+    )
+    approved_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="approved_leave_requests",
+    )
+    approved_at = models.DateTimeField(null=True, blank=True)
+    remarks = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def clean(self):
+        super().clean()
+        if self.start_date and self.end_date and self.end_date < self.start_date:
+            raise ValidationError({"end_date": "End date cannot be before start date."})
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        return super().save(*args, **kwargs)
+
+    @property
+    def total_days(self):
+        return (self.end_date - self.start_date).days + 1
+
+    def __str__(self):
+        return f"{self.employee} - {self.leave_type} ({self.status})"
+
+
 class OfficeTransfer(models.Model):
     class Status(models.TextChoices):
         TRANSFERRED = "TRANSFERRED", "सरुवा"

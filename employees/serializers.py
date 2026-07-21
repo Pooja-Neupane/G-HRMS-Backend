@@ -3,7 +3,7 @@
 from django.core.exceptions import ValidationError as DjangoValidationError
 from rest_framework import serializers
 
-from employees.models import Employee, OfficeTransfer
+from employees.models import AttendanceRecord, Employee, LeaveRequest, OfficeTransfer
 from organizations.models import Level, Organization, Position
 
 
@@ -262,6 +262,54 @@ class EmployeeCreateSerializer(EmployeeWriteSerializer):
         queryset=Level.objects.all(),
         help_text="Level ID from GET /api/levels/.",
     )
+
+
+class AttendanceRecordSerializer(serializers.ModelSerializer):
+    employee = serializers.PrimaryKeyRelatedField(queryset=Employee.objects.all())
+
+    class Meta:
+        model = AttendanceRecord
+        fields = (
+            "id",
+            "employee",
+            "work_date",
+            "check_in",
+            "check_out",
+            "status",
+            "notes",
+            "created_at",
+            "updated_at",
+        )
+        read_only_fields = ("id", "created_at", "updated_at")
+
+
+class LeaveRequestSerializer(serializers.ModelSerializer):
+    employee = serializers.PrimaryKeyRelatedField(queryset=Employee.objects.all())
+    approved_by = serializers.PrimaryKeyRelatedField(read_only=True)
+    total_days = serializers.IntegerField(read_only=True)
+
+    class Meta:
+        model = LeaveRequest
+        fields = (
+            "id",
+            "employee",
+            "leave_type",
+            "start_date",
+            "end_date",
+            "reason",
+            "status",
+            "approved_by",
+            "approved_at",
+            "remarks",
+            "total_days",
+            "created_at",
+            "updated_at",
+        )
+        read_only_fields = ("id", "status", "approved_by", "approved_at", "created_at", "updated_at")
+
+
+class LeaveApprovalSerializer(serializers.Serializer):
+    remarks = serializers.CharField(required=False, allow_blank=True)
 
 
 class OfficeTransferSerializer(serializers.ModelSerializer):

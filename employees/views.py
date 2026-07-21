@@ -1,16 +1,21 @@
 """HTTP adapters for employee and office-transfer APIs."""
 
+from django.utils import timezone
 from drf_spectacular.utils import OpenApiExample, extend_schema, extend_schema_view
 from rest_framework import status, viewsets
+from rest_framework.decorators import action
 from rest_framework.response import Response
 
 from employees.filters import EmployeeFilter
-from employees.models import OfficeTransfer
+from employees.models import AttendanceRecord, LeaveRequest, OfficeTransfer
 from employees.permissions import EmployeePermission
 from employees.serializers import (
+    AttendanceRecordSerializer,
     EmployeeCreateSerializer,
     EmployeeReadSerializer,
     EmployeeWriteSerializer,
+    LeaveApprovalSerializer,
+    LeaveRequestSerializer,
     OfficeTransferSerializer,
 )
 from employees.services import EmployeeService
@@ -171,6 +176,74 @@ class EmployeeViewSet(viewsets.GenericViewSet):
     def destroy(self, request, pk=None):
         self.get_service().delete(employee_id=pk, actor=request.user)
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+@extend_schema(tags=["Attendance"])
+class AttendanceRecordViewSet(viewsets.ModelViewSet):
+    permission_classes = [EmployeePermission]
+    queryset = AttendanceRecord.objects.select_related("employee")
+    serializer_class = AttendanceRecordSerializer
+    filterset_fields = ["employee", "status", "work_date"]
+    search_fields = ["employee__ka_sa_num", "employee__first_name", "notes"]
+    ordering_fields = ["work_date", "created_at"]
+    ordering = ["-work_date"]
+
+
+@extend_schema(tags=["Leave Requests"])
+class LeaveRequestViewSet(viewsets.ModelViewSet):
+    permission_classes = [EmployeePermission]
+    queryset = LeaveRequest.objects.select_related("employee", "approved_by")
+    serializer_class = LeaveRequestSerializer
+    filterset_fields = ["employee", "status", "leave_type"]
+    search_fields = ["employee__ka_sa_num", "employee__first_name", "reason"]
+    ordering_fields = ["start_date", "end_date", "created_at"]
+    ordering = ["-created_at"]
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        leave_request = serializer.save(status=LeaveRequest.Status.PENDING)
+        return Response(
+            LeaveRequestSerializer(leave_request).data,
+            status=status.HTTP_201_CREATED,
+        )
+
+    @action(detail=True, methods=["post"], serializer_class=LeaveApprovalSerializer)
+    def approve(self, request, pk=None):
+        leave_request = self.get_object()
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        leave_request.status = LeaveRequest.Status.APPROVED
+        leave_request.approved_by = request.user
+        leave_request.approved_at = timezone.now()
+        leave_request.remarks = serializer.validated_data.get("remarks", leave_request.remarks)
+        leave_request.save(update_fields=["status", "approved_by", "approved_at", "remarks", "updated_at"])
+        return Response(LeaveRequestSerializer(leave_request).data)
+
+    @action(detail=True, methods=["post"], serializer_class=LeaveApprovalSerializer)
+    def reject(self, request, pk=None):
+        leave_request = self.get_object()
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        leave_request.status = LeaveRequest.Status.REJECTED
+        leave_request.approved_by = request.user
+        leave_request.approved_at = timezone.now()
+        leave_request.remarks = serializer.validated_data.get("remarks", leave_request.remarks)
+        leave_request.save(update_fields=["status", "approved_by", "approved_at", "remarks", "updated_at"])
+        return Response(LeaveRequestSerializer(leave_request).data)
+
+
+@extend_schema(tags=["Approvals"])
+class ApprovalViewSet(viewsets.ReadOnlyModelViewSet):
+    permission_classes = [EmployeePermission]
+    queryset = LeaveRequest.objects.filter(status=LeaveRequest.Status.PENDING).select_related(
+        "employee", "approved_by"
+    )
+    serializer_class = LeaveRequestSerializer
+    filterset_fields = ["employee", "leave_type"]
+    search_fields = ["employee__ka_sa_num", "employee__first_name", "reason"]
+    ordering_fields = ["start_date", "end_date", "created_at"]
+    ordering = ["-created_at"]
 
 
 @extend_schema(tags=["Office Transfers"])
