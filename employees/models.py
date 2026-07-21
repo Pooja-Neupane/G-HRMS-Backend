@@ -1,3 +1,5 @@
+import datetime
+
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
@@ -269,6 +271,11 @@ class AttendanceRecord(models.Model):
         HALF_DAY = "half_day", "Half Day"
         HOLIDAY = "holiday", "Holiday"
 
+    class AttendanceMark(models.TextChoices):
+        ON_TIME = "on_time", "On Time"
+        LATE = "late", "Late"
+        ABSENT = "absent", "Absent"
+
     employee = models.ForeignKey(
         Employee,
         on_delete=models.CASCADE,
@@ -282,6 +289,12 @@ class AttendanceRecord(models.Model):
         choices=Status.choices,
         default=Status.PRESENT,
     )
+    attendance_mark = models.CharField(
+        max_length=12,
+        choices=AttendanceMark.choices,
+        default=AttendanceMark.ON_TIME,
+        blank=True,
+    )
     notes = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -294,6 +307,27 @@ class AttendanceRecord(models.Model):
                 name="unique_attendance_per_employee_day",
             )
         ]
+
+    def clean(self):
+        super().clean()
+        if self.check_in and self.check_out and self.check_out < self.check_in:
+            raise ValidationError({"check_out": "Check-out time cannot be before check-in time."})
+
+    def save(self, *args, **kwargs):
+        if self.check_in and self.status != self.Status.ABSENT:
+            check_in_time = self.check_in
+            if isinstance(check_in_time, str):
+                check_in_time = datetime.datetime.strptime(check_in_time, "%H:%M:%S").time()
+            threshold = datetime.time(9, 30)
+            self.attendance_mark = (
+                self.AttendanceMark.ON_TIME
+                if check_in_time <= threshold
+                else self.AttendanceMark.LATE
+            )
+        elif self.status == self.Status.ABSENT:
+            self.attendance_mark = self.AttendanceMark.ABSENT
+        self.full_clean()
+        return super().save(*args, **kwargs)
 
     def __str__(self):
         return f"{self.employee} - {self.work_date}"

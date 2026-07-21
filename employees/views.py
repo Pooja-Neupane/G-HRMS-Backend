@@ -250,6 +250,7 @@ class ApprovalViewSet(viewsets.ReadOnlyModelViewSet):
 @extend_schema(tags=["Reports"])
 class ReportViewSet(viewsets.ViewSet):
     permission_classes = [EmployeePermission]
+    serializer_class = ReportSummarySerializer
 
     def list(self, request):
         employee_id = request.query_params.get("employee")

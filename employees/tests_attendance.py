@@ -3,7 +3,7 @@ from django.urls import reverse
 from rest_framework.test import APIClient
 
 from account.models import User
-from employees.models import Employee, LeaveRequest
+from employees.models import AttendanceRecord, Employee, LeaveRequest
 
 
 class AttendanceLeaveApprovalApiTests(TestCase):
@@ -46,6 +46,16 @@ class AttendanceLeaveApprovalApiTests(TestCase):
         )
         self.assertEqual(attendance_response.status_code, 201)
         self.assertEqual(attendance_response.json()["status"], "present")
+        self.assertEqual(attendance_response.json()["attendance_mark"], "on_time")
+
+        late_record = AttendanceRecord.objects.create(
+            employee=self.employee,
+            work_date="2026-07-22",
+            check_in="10:10:00",
+            check_out="17:00:00",
+            status=AttendanceRecord.Status.PRESENT,
+        )
+        self.assertEqual(late_record.attendance_mark, AttendanceRecord.AttendanceMark.LATE)
 
         leave_response = self.client.post(
             reverse("leave-request-list"),

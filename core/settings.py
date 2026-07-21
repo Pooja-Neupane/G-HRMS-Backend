@@ -27,7 +27,7 @@ MEDIA_ROOT = os.path.join(BASE_DIR, "media")
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = config(
     "SECRET_KEY",
-    default="django-insecure-vh69&ww3e3g1@hxpi@891x@_38p416mk2x0-wkod&pu2=^3@*%",
+    default="django-insecure-g-hrms-backend-secret-key-change-me-in-production-2025-!@#abc-please-change-me",
 )
 
 # SECURITY WARNING: don't run with debug turned on in production!
@@ -43,6 +43,14 @@ render_hostname = config("RENDER_EXTERNAL_HOSTNAME", default="")
 if render_hostname:
     ALLOWED_HOSTS.append(render_hostname)
 
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+USE_X_FORWARDED_HOST = True
+SECURE_HSTS_SECONDS = config("SECURE_HSTS_SECONDS", default=(0 if DEBUG else 31536000), cast=int)
+SECURE_HSTS_INCLUDE_SUBDOMAINS = config("SECURE_HSTS_INCLUDE_SUBDOMAINS", default=(not DEBUG), cast=bool)
+SECURE_HSTS_PRELOAD = config("SECURE_HSTS_PRELOAD", default=(not DEBUG), cast=bool)
+SECURE_SSL_REDIRECT = config("SECURE_SSL_REDIRECT", default=(not DEBUG), cast=bool)
+SESSION_COOKIE_SECURE = config("SESSION_COOKIE_SECURE", default=(not DEBUG), cast=bool)
+CSRF_COOKIE_SECURE = config("CSRF_COOKIE_SECURE", default=(not DEBUG), cast=bool)
 
 # Application definition
 
@@ -144,6 +152,7 @@ SPECTACULAR_SETTINGS = {
 MIDDLEWARE = [
     "core.middleware.RequestContextMiddleware",
     "django.middleware.security.SecurityMiddleware",
+    "whitenoise.middleware.WhiteNoiseMiddleware",
     "corsheaders.middleware.CorsMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -294,9 +303,18 @@ if DEBUG:
     }
 else:
     import dj_database_url
-    DATABASES = {
-        "default": dj_database_url.config(default=config("DATABASE_URL", default=""))
-    }
+    database_url = config("DATABASE_URL", default="")
+    if database_url:
+        DATABASES = {
+            "default": dj_database_url.parse(database_url)
+        }
+    else:
+        DATABASES = {
+            "default": {
+                "ENGINE": "django.db.backends.sqlite3",
+                "NAME": BASE_DIR / "db.sqlite3",
+            }
+        }
 
 
 # Password validation
@@ -332,12 +350,12 @@ USE_I18N = True
 
 USE_TZ = True
 
-
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
 STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
+STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field

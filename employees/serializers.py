@@ -276,6 +276,7 @@ class AttendanceRecordSerializer(serializers.ModelSerializer):
             "check_in",
             "check_out",
             "status",
+            "attendance_mark",
             "notes",
             "created_at",
             "updated_at",
