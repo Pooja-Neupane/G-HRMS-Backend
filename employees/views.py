@@ -7,7 +7,7 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 
 from employees.filters import EmployeeFilter
-from employees.models import AttendanceRecord, LeaveRequest, OfficeTransfer
+from employees.models import AttendanceRecord, Employee, LeaveRequest, OfficeTransfer
 from employees.permissions import EmployeePermission
 from employees.serializers import (
     AttendanceRecordSerializer,
@@ -17,6 +17,7 @@ from employees.serializers import (
     LeaveApprovalSerializer,
     LeaveRequestSerializer,
     OfficeTransferSerializer,
+    ReportSummarySerializer,
 )
 from employees.services import EmployeeService
 
@@ -244,6 +245,68 @@ class ApprovalViewSet(viewsets.ReadOnlyModelViewSet):
     search_fields = ["employee__ka_sa_num", "employee__first_name", "reason"]
     ordering_fields = ["start_date", "end_date", "created_at"]
     ordering = ["-created_at"]
+
+
+@extend_schema(tags=["Reports"])
+class ReportViewSet(viewsets.ViewSet):
+    permission_classes = [EmployeePermission]
+
+    def list(self, request):
+        employee_id = request.query_params.get("employee")
+        start_date = request.query_params.get("start_date")
+        end_date = request.query_params.get("end_date")
+
+        queryset = AttendanceRecord.objects.select_related("employee")
+        if employee_id:
+            queryset = queryset.filter(employee_id=employee_id)
+        if start_date:
+            queryset = queryset.filter(work_date__gte=start_date)
+        if end_date:
+            queryset = queryset.filter(work_date__lte=end_date)
+
+        leave_queryset = LeaveRequest.objects.select_related("employee")
+        if employee_id:
+            leave_queryset = leave_queryset.filter(employee_id=employee_id)
+        if start_date:
+            leave_queryset = leave_queryset.filter(start_date__gte=start_date)
+        if end_date:
+            leave_queryset = leave_queryset.filter(end_date__lte=end_date)
+
+        attendance_rows = list(queryset)
+        leave_rows = list(leave_queryset)
+
+        attendance_summary = {
+            "total": len(attendance_rows),
+            "present": sum(1 for item in attendance_rows if item.status == AttendanceRecord.Status.PRESENT),
+            "absent": sum(1 for item in attendance_rows if item.status == AttendanceRecord.Status.ABSENT),
+            "late": sum(1 for item in attendance_rows if item.status == AttendanceRecord.Status.LATE),
+            "half_day": sum(1 for item in attendance_rows if item.status == AttendanceRecord.Status.HALF_DAY),
+            "holiday": sum(1 for item in attendance_rows if item.status == AttendanceRecord.Status.HOLIDAY),
+        }
+        leave_summary = {
+            "total": len(leave_rows),
+            "pending": sum(1 for item in leave_rows if item.status == LeaveRequest.Status.PENDING),
+            "approved": sum(1 for item in leave_rows if item.status == LeaveRequest.Status.APPROVED),
+            "rejected": sum(1 for item in leave_rows if item.status == LeaveRequest.Status.REJECTED),
+            "cancelled": sum(1 for item in leave_rows if item.status == LeaveRequest.Status.CANCELLED),
+        }
+
+        employee = None
+        if employee_id:
+            employee = Employee.objects.filter(pk=employee_id).first()
+
+        payload = {
+            "employee_id": int(employee_id) if employee_id else None,
+            "employee_name": employee.full_name if employee else None,
+            "period": {
+                "start_date": start_date,
+                "end_date": end_date,
+            },
+            "attendance": attendance_summary,
+            "leave_requests": leave_summary,
+        }
+        serializer = ReportSummarySerializer(payload)
+        return Response(serializer.data)
 
 
 @extend_schema(tags=["Office Transfers"])

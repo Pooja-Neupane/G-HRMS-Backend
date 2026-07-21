@@ -312,6 +312,14 @@ class LeaveApprovalSerializer(serializers.Serializer):
     remarks = serializers.CharField(required=False, allow_blank=True)
 
 
+class ReportSummarySerializer(serializers.Serializer):
+    employee_id = serializers.IntegerField(read_only=True)
+    employee_name = serializers.CharField(read_only=True)
+    period = serializers.DictField(read_only=True)
+    attendance = serializers.DictField(read_only=True)
+    leave_requests = serializers.DictField(read_only=True)
+
+
 class OfficeTransferSerializer(serializers.ModelSerializer):
     class Meta:
         model = OfficeTransfer
